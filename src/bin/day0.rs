@@ -4,7 +4,7 @@ use clap::{self, Parser};
 #[command(author="Vampire Exec", version="0.0", about=format!("solution for {}", file!()), long_about = None)]
 struct Args {
     #[arg(long)]
-    input: String,
+    input: Option<String>,
 }
 
 fn main() {
