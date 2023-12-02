@@ -40,7 +40,7 @@ fn get_counts(line: &str) -> HashMap<&str, i32> {
             continue;
         }
 
-        let n = i32::from_str_radix(token.as_str(), 10).unwrap();
+        let n = token.as_str().parse::<i32>().unwrap();
         let color = tokens.next().unwrap().as_str();
         if n > counts[color] {
             *counts.get_mut(color).unwrap() = n;
@@ -51,12 +51,10 @@ fn get_counts(line: &str) -> HashMap<&str, i32> {
 
 fn part1() {
     let input = fs::read_to_string(ARGS.input.as_ref().unwrap()).unwrap();
-    let game_re = Regex::new(r"Game (\d+):").unwrap();
+    let game_re = Regex::new(r"\d+").unwrap();
     let mut sum = 0;
     for line in input.split("\n") {
-        let game =
-            i32::from_str_radix(game_re.captures(line).unwrap().get(1).unwrap().as_str(), 10)
-                .unwrap();
+        let game = game_re.find(line).unwrap().as_str().parse::<i32>().unwrap();
         let counts = get_counts(line);
         if counts["red"] <= 12 && counts["green"] <= 13 && counts["blue"] <= 14 {
             sum += game;
