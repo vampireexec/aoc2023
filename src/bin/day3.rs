@@ -1,5 +1,6 @@
 use clap::{self, Parser};
 use lazy_static::lazy_static;
+use regex::Regex;
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
@@ -36,125 +37,83 @@ fn main() {
 struct Part {
     num: i64,
     locs: Vec<(i64, i64)>,
-    valid: Option<bool>,
+}
+
+lazy_static! {
+    static ref ADJ: Vec<(i64, i64)> = (-1..=1)
+        .flat_map(|i| (-1..=1).map(move |j| (i, j)))
+        .collect();
+    static ref NUM_RE: Regex = Regex::new(r"\d+").unwrap();
+    static ref SYM_RE: Regex = Regex::new(r"[^.\d\n]").unwrap();
+    static ref GEAR_RE: Regex = Regex::new(r"\*").unwrap();
+}
+
+trait Grided {
+    fn as_ij(&self, width: i64) -> (i64, i64);
+}
+
+impl Grided for usize {
+    fn as_ij(&self, width: i64) -> (i64, i64) {
+        (*self as i64 % width, *self as i64 / width)
+    }
 }
 
 fn part1() -> Result<(), Box<dyn Error>> {
-    let lines = INPUT.split_ascii_whitespace().collect::<Vec<&str>>();
-
-    let mut i = 0;
-    let mut j = 0;
-    let mut parts = vec![];
-    let mut syms = HashSet::new();
-
-    while j < lines.len() {
-        let line = lines[j].as_bytes();
-        while i < line.len() {
-            if !line[i].is_ascii_digit() {
-                if line[i] as char != '.' {
-                    syms.insert((i as i64, j as i64));
-                }
-                i += 1;
-                continue;
-            }
-
-            let mut buf = String::new();
-            let mut locs = vec![];
-            while i < line.len() && line[i].is_ascii_digit() {
-                buf.push(line[i] as char);
-                locs.push((i as i64, j as i64));
-                i += 1;
-            }
-
-            parts.push(Part {
-                num: buf.parse::<i64>()?,
-                locs,
-                valid: None,
-            });
-        }
-        i = 0;
-        j += 1;
-    }
-
+    let width = INPUT.find("\n").unwrap() as i64 + 1;
+    let mut parts = NUM_RE
+        .find_iter(&INPUT)
+        .map(|m| Part {
+            num: m.as_str().parse::<i64>().unwrap(),
+            locs: m.range().map(|s| s.as_ij(width)).collect(),
+        })
+        .collect::<Vec<Part>>();
+    let syms: Vec<(i64, i64)> = SYM_RE
+        .find_iter(&INPUT)
+        .map(|m| m.start().as_ij(width))
+        .collect();
     let mut sum = 0;
-    'validate: for part in &mut parts {
-        for loc in &part.locs {
-            for dj in -1..=1 {
-                for di in -1..=1 {
-                    if syms.contains(&(loc.0 + di as i64, loc.1 + dj as i64)) {
-                        part.valid.replace(true);
-                        sum += part.num;
-                        continue 'validate;
-                    }
-                }
-            }
+    for part in &mut parts {
+        if part.locs.iter().any(|(i, j)| {
+            let syms = &syms;
+            ADJ.iter()
+                .any(move |(di, dj)| syms.contains(&(i + di, j + dj)))
+        }) {
+            sum += part.num;
         }
-        part.valid.replace(false);
     }
-
     println!("{}", sum);
     Ok(())
 }
 
 fn part2() -> Result<(), Box<dyn Error>> {
-    let lines = INPUT.split_ascii_whitespace().collect::<Vec<&str>>();
-
-    let mut i = 0;
-    let mut j = 0;
-    let mut parts = vec![];
-    let mut part_lut = HashMap::new();
-    let mut asters = HashSet::new();
-
-    while j < lines.len() {
-        let line = lines[j].as_bytes();
-        while i < line.len() {
-            if !line[i].is_ascii_digit() {
-                if line[i] as char == '*' {
-                    asters.insert((i as i64, j as i64));
-                }
-                i += 1;
-                continue;
-            }
-
-            let mut buf = String::new();
-            let mut locs = vec![];
-            while i < line.len() && line[i].is_ascii_digit() {
-                buf.push(line[i] as char);
-                locs.push((i as i64, j as i64));
-                i += 1;
-            }
-            let part = Part {
-                num: buf.parse::<i64>()?,
-                locs,
-                valid: None,
-            };
-
-            for loc in &part.locs {
-                part_lut.insert(loc.clone(), part.clone());
-            }
-            parts.push(part);
-        }
-        i = 0;
-        j += 1;
-    }
-
+    let width = INPUT.find("\n").unwrap() as i64 + 1;
+    let parts = NUM_RE
+        .find_iter(&INPUT)
+        .map(|m| Part {
+            num: m.as_str().parse::<i64>().unwrap(),
+            locs: m.range().map(|s| s.as_ij(width)).collect(),
+        })
+        .collect::<Vec<Part>>();
+    let parts_lut: HashMap<(i64, i64), &Part> = parts
+        .iter()
+        .flat_map(|p| p.locs.iter().map(move |l| (*l, p)))
+        .collect();
+    let gears: Vec<(i64, i64)> = GEAR_RE
+        .find_iter(&INPUT)
+        .map(|m| m.start().as_ij(width))
+        .collect();
     let mut sum = 0;
-    for aster in asters {
-        let mut adj = HashSet::new();
-        for dj in -1..=1 {
-            for di in -1..=1 {
-                if let Some(part) = part_lut.get(&(aster.0 + di as i64, aster.1 + dj as i64)) {
-                    adj.insert(part);
-                }
-            }
-        }
-
+    for (i, j) in &gears {
+        let adj: HashSet<&Part> = ADJ
+            .iter()
+            .filter_map(|(di, dj)| parts_lut.get(&(i + *di, j + *dj)))
+            .cloned()
+            .collect();
         if adj.len() == 2 {
-            let mut parts = adj.iter();
-            sum += parts.next().unwrap().num * parts.next().unwrap().num;
+            let mut pair = adj.iter();
+            sum += pair.next().unwrap().num * pair.next().unwrap().num;
         }
     }
-
     println!("{}", sum);
     Ok(())
 }
