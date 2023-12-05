@@ -1,6 +1,6 @@
-use clap::{self, Parser};
+use clap::Parser;
 use lazy_static::lazy_static;
-use std::{error::Error, fs::read};
+use std::fs::read;
 
 #[derive(Parser, Debug)]
 #[command(author="Vampire Exec", version="0.0", about=format!("solution for {}", file!()), long_about = None)]
@@ -18,15 +18,11 @@ lazy_static! {
 
 fn main() {
     if ARGS.part == 1 {
-        part1().ok();
+        part1();
     } else {
-        part2().ok();
+        part2();
     }
 }
-fn part1() -> Result<(), Box<dyn Error>> {
-    Ok(())
-}
+fn part1() {}
 
-fn part2() -> Result<(), Box<dyn Error>> {
-    Ok(())
-}
+fn part2() {}

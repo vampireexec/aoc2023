@@ -1,9 +1,7 @@
-use clap::{self, Parser};
-use lazy_static::lazy_static;
+use clap::Parser;
 use regex::bytes::Regex;
 use std::{
     collections::{HashMap, HashSet},
-    error::Error,
     fs::read,
     str::from_utf8,
 };
@@ -13,71 +11,21 @@ use std::{
 struct Args {
     #[arg(long)]
     input: Option<String>,
-    #[arg(long)]
-    part: u8,
-}
-
-lazy_static! {
-    static ref ARGS: Args = Args::parse();
-    static ref INPUT: Vec<u8> = ARGS.input.as_ref().map_or(vec![], |p| read(p).unwrap());
 }
 
 fn main() {
-    if ARGS.part == 1 {
-        part1().ok();
-    } else {
-        part2().ok();
-    }
-}
-
-fn part1() -> Result<(), Box<dyn Error>> {
+    let args = Args::parse();
+    let input = args.input.as_ref().map_or(vec![], |p| read(p).unwrap());
     let tokens_re = Regex::new(r"\d+|\||\n").unwrap();
-    let mut tokens = tokens_re.find_iter(&INPUT);
-    let mut sum = 0i64;
-    'parse: loop {
-        let Some(_game) = tokens.next() else {
-            break 'parse;
-        };
-        let winners = (&mut tokens)
-            .map_while(|t| {
-                if t.as_bytes() != b"|" {
-                    Some(from_utf8(t.into()).unwrap().parse().unwrap())
-                } else {
-                    None
-                }
-            })
-            .collect::<HashSet<i64>>();
-        let count = (&mut tokens)
-            .map_while(|t| {
-                if t.as_bytes() != b"\n" {
-                    Some(from_utf8(t.into()).unwrap().parse().unwrap())
-                } else {
-                    None
-                }
-            })
-            .filter(|t| winners.contains(t))
-            .count();
-        if count > 0 {
-            sum += 1 << (count - 1);
-        }
-    }
-    println!("{}", sum);
-    Ok(())
-}
-
-fn part2() -> Result<(), Box<dyn Error>> {
-    let tokens_re = Regex::new(r"\d+|\||\n").unwrap();
-    let mut tokens = tokens_re.find_iter(&INPUT);
+    let tokens = &mut tokens_re.find_iter(&input);
+    let mut sum1 = 0i64;
+    let mut sum2 = 0i64;
     let mut copy_map = HashMap::new();
-    let mut count = 0;
-    'parse: loop {
-        let Some(game) = tokens.next() else {
-            break 'parse;
-        };
-        let game = from_utf8(game.as_bytes())?.parse::<i64>()?;
+    while let Some(game) = tokens.next() {
+        let game = from_utf8(game.as_bytes()).unwrap().parse::<i64>().unwrap();
         let copies = copy_map.remove(&game).unwrap_or(1i64);
-        count += copies;
-        let winners = (&mut tokens)
+        sum2 += copies;
+        let winners = tokens
             .map_while(|t| {
                 if t.as_bytes() != b"|" {
                     Some(from_utf8(t.into()).unwrap().parse().unwrap())
@@ -87,20 +35,23 @@ fn part2() -> Result<(), Box<dyn Error>> {
             })
             .collect::<HashSet<i64>>();
         let mut wins = 0;
-        (&mut tokens)
+        let count = tokens
             .map_while(|t| {
                 if t.as_bytes() != b"\n" {
                     if winners.contains(&from_utf8(t.into()).unwrap().parse().unwrap()) {
                         wins += 1;
-                        *((&mut copy_map).entry(game + wins).or_insert(1)) += copies;
+                        *copy_map.entry(game + wins).or_insert(1) += copies;
                     }
-                    Some(())
+                    Some(from_utf8(t.into()).unwrap().parse().unwrap())
                 } else {
                     None
                 }
             })
+            .filter(|t| winners.contains(t))
             .count();
+        if count > 0 {
+            sum1 += 1 << (count - 1);
+        }
     }
-    println!("{}", count);
-    Ok(())
+    println!("1) {} 2) {}", sum1, sum2);
 }
