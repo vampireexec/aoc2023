@@ -1,6 +1,6 @@
 use clap::{self, Parser};
 use lazy_static::lazy_static;
-use std::{error::Error, fs::read_to_string};
+use std::{error::Error, fs::read};
 
 #[derive(Parser, Debug)]
 #[command(author="Vampire Exec", version="0.0", about=format!("solution for {}", file!()), long_about = None)]
@@ -13,11 +13,7 @@ struct Args {
 
 lazy_static! {
     static ref ARGS: Args = Args::parse();
-    static ref INPUT: String = ARGS
-        .input
-        .as_ref()
-        .map(|p| read_to_string(p).unwrap())
-        .unwrap_or("".into());
+    static ref INPUT: Vec<u8> = ARGS.input.as_ref().map_or(vec![], |p| read(p).unwrap());
 }
 
 fn main() {
