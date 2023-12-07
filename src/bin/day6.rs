@@ -14,7 +14,7 @@ struct Args {
 
 lazy_static! {
     static ref ARGS: Args = Args::parse();
-    static ref INPUT: Vec<u8> = ARGS.input.as_ref().map_or(vec![], |p| read(p).unwrap());
+    static ref IN: Vec<u8> = ARGS.input.as_ref().map_or(vec![], |p| read(p).unwrap());
 }
 
 fn main() {
@@ -25,58 +25,29 @@ fn main() {
     }
 }
 fn part1() {
-    let tokens_re = Regex::new(r"\w+:|\d+|\n").unwrap();
-    let tokens = &mut tokens_re
-        .find_iter(&INPUT)
-        .map(|t| from_utf8(t.as_bytes()).unwrap());
-    tokens.next(); // label
-    let times: Vec<i64> = tokens
-        .map_while(|t| if t != "\n" { t.parse().ok() } else { None })
-        .collect();
-    tokens.next(); // label
-    let dists: Vec<i64> = tokens
-        .map_while(|t| if t != "\n" { t.parse().ok() } else { None })
-        .collect();
-
-    assert_eq!(times.len(), dists.len());
+    let re = Regex::new(r"\w+:|\d+|\n").unwrap();
+    let toks = &mut re.find_iter(&IN).map(|t| from_utf8(t.as_bytes()).unwrap());
+    toks.next(); // label
+    let times = toks.map_while(|t| t.ne("\n").then(|| t.parse().unwrap()));
+    let times = times.collect::<Vec<_>>();
+    toks.next(); // label
+    let dists = toks.map_while(|t| t.ne("\n").then(|| t.parse().unwrap()));
+    let dists = dists.collect::<Vec<_>>();
     let mut result = 1;
-    for i in 0..times.len() {
-        let time = times[i];
-        let dist = dists[i];
-        let mut count = 0;
-        for charge in 0..time {
-            if charge * (time - charge) > dist {
-                count += 1;
-            }
-        }
-        result *= count
+    for (t, d) in times.iter().zip(dists.iter()) {
+        result *= (0..*t).filter(|c| c * (t - c) > *d).count();
     }
     println!("{}", result)
 }
 
 fn part2() {
-    let tokens_re = Regex::new(r"\w+:|\d+|\n").unwrap();
-    let tokens = &mut tokens_re
-        .find_iter(&INPUT)
-        .map(|t| from_utf8(t.as_bytes()).unwrap());
-    tokens.next(); // label
-    let time: i64 = tokens
-        .map_while(|t| if t != "\n" { Some(t) } else { None })
-        .collect::<String>()
-        .parse()
-        .unwrap();
-    tokens.next(); // label
-    let dist: i64 = tokens
-        .map_while(|t| if t != "\n" { Some(t) } else { None })
-        .collect::<String>()
-        .parse()
-        .unwrap();
-
-    let mut count = 0;
-    for charge in 0..time {
-        if charge * (time - charge) > dist {
-            count += 1;
-        }
-    }
-    println!("{}", count)
+    let re = Regex::new(r"\w+:|\d+|\n").unwrap();
+    let toks = &mut re.find_iter(&IN).map(|t| from_utf8(t.as_bytes()).unwrap());
+    toks.next(); // label
+    let time = toks.map_while(|t| t.ne("\n").then_some(t));
+    let time = time.collect::<String>().parse().unwrap();
+    toks.next(); // label
+    let dist = toks.map_while(|t| t.ne("\n").then_some(t));
+    let dist = dist.collect::<String>().parse().unwrap();
+    println!("{}", (0i64..time).filter(|c| c * (time - c) > dist).count());
 }
