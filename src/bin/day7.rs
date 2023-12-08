@@ -8,8 +8,6 @@ use std::{collections::HashMap, fs::read, str::from_utf8};
 struct Args {
     #[arg(long)]
     input: Option<String>,
-    #[arg(long)]
-    part: u8,
 }
 
 lazy_static! {
@@ -18,11 +16,7 @@ lazy_static! {
 }
 
 fn main() {
-    if ARGS.part == 1 {
-        part1();
-    } else {
-        part2();
-    }
+    part1_and_2();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
@@ -114,20 +108,14 @@ impl Hand {
             }
         }
 
-        if freq[0].0 == 5 {
-            Ranks::FiveOf
-        } else if freq[0].0 == 4 {
-            Ranks::FourOf
-        } else if freq[0].0 == 3 && freq[1].0 == 2 {
-            Ranks::FullHouse
-        } else if freq[0].0 == 3 {
-            Ranks::ThreeOf
-        } else if freq[0].0 == 2 && freq[1].0 == 2 {
-            Ranks::TwoPair
-        } else if freq[0].0 == 2 {
-            Ranks::TwoOf
-        } else {
-            Ranks::High
+        match (freq[0].0, freq.get(1).and_then(|s| Some(s.0))) {
+            (5, _) => Ranks::FiveOf,
+            (4, _) => Ranks::FourOf,
+            (3, Some(2)) => Ranks::FullHouse,
+            (3, _) => Ranks::ThreeOf,
+            (2, Some(2)) => Ranks::TwoPair,
+            (2, _) => Ranks::TwoOf,
+            _ => Ranks::High,
         }
     }
 
@@ -161,7 +149,7 @@ impl PartialEq for Hand {
     }
 }
 
-fn part1() {
+fn part1_and_2() {
     let re = Regex::new(r"[AKQJT0-9]| |\n").unwrap();
     let toks = re.find_iter(&IN).map(|t| from_utf8(t.as_bytes()).unwrap());
     let toks = &mut toks.peekable();
@@ -177,38 +165,23 @@ fn part1() {
         let bid: i64 = bid.parse().unwrap();
         hands.push(Hand { cards, bid });
     }
+
     hands.sort();
     println!(
-        "{}",
+        "1) {}",
         hands.iter().enumerate().fold(0, |mut sum, (rank, hand)| {
             sum += (rank + 1) as i64 * hand.bid;
             sum
         })
     );
-}
 
-fn part2() {
-    let re = Regex::new(r"[AKQJT0-9]| |\n").unwrap();
-    let toks = re.find_iter(&IN).map(|t| from_utf8(t.as_bytes()).unwrap());
-    let toks = &mut toks.peekable();
-
-    let mut hands = vec![];
-    while toks.peek().is_some() {
-        let cards = toks
-            .map_while(|t| t.ne(" ").then(|| Card::from(t)))
-            .collect::<Vec<_>>();
-        let bid = toks
-            .map_while(|t| t.ne("\n").then_some(t))
-            .collect::<String>();
-        let bid: i64 = bid.parse().unwrap();
-        hands.push(Hand { cards, bid });
-    }
     let mut hands = hands.iter().map(Hand::as_wilds).collect::<Vec<_>>();
     hands.sort();
-    let mut s = 0;
-    hands
-        .iter()
-        .enumerate()
-        .for_each(|(r, h)| s += (r + 1) as i64 * h.bid);
-    println!("{}", s);
+    println!(
+        "2) {}",
+        hands.iter().enumerate().fold(0, |mut sum, (rank, hand)| {
+            sum += (rank + 1) as i64 * hand.bid;
+            sum
+        })
+    );
 }
