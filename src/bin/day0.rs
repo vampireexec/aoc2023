@@ -13,7 +13,7 @@ struct Args {
 
 lazy_static! {
     static ref ARGS: Args = Args::parse();
-    static ref INPUT: Vec<u8> = ARGS.input.as_ref().map_or(vec![], |p| read(p).unwrap());
+    static ref IN: Vec<u8> = ARGS.input.as_ref().map_or(vec![], |p| read(p).unwrap());
 }
 
 fn main() {
