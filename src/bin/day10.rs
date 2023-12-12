@@ -1,8 +1,9 @@
 use clap::Parser;
 use lazy_static::lazy_static;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, LinkedList},
     fs::read,
+    ops::Add,
     rc::Rc,
 };
 
@@ -30,39 +31,81 @@ fn main() {
 
 #[derive(Debug, Clone)]
 struct Node {
-    _pipe: char,
-    pt: (i64, i64),
-    ch: Vec<(i64, i64)>,
+    pipe: char,
+    pt: Point,
+    ch: Vec<Point>,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct Point {
+    i: i64,
+    j: i64,
+}
+
+impl Point {
+    fn rel(&self, delta: Point) -> Point {
+        Point {
+            i: self.i + delta.i,
+            j: self.j + delta.j,
+        }
+    }
+
+    fn new(i: i64, j: i64) -> Self {
+        Self { i, j }
+    }
+}
+
+impl Add for Point {
+    type Output = Point;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        self.rel(rhs)
+    }
+}
+
+impl From<(i64, i64)> for Point {
+    fn from(value: (i64, i64)) -> Self {
+        Self {
+            i: value.0,
+            j: value.1,
+        }
+    }
+}
+
+const UP: Point = Point { i: 0, j: -1 };
+const DOWN: Point = Point { i: 0, j: 1 };
+const LEFT: Point = Point { i: -1, j: 0 };
+const RIGHT: Point = Point { i: 1, j: 0 };
 
 fn part1() {
     let mut map = HashMap::new();
     let mut i = 0;
     let mut j = 0;
-    let mut start = (0, 0);
+    let mut start = Point::new(0, 0);
     let mut w = 0;
     let mut h = 0;
     for (_, b) in IN.iter().enumerate() {
         if b == &('S' as u8) {
-            start = (i, j);
+            start = Point::new(i, j);
         }
         if b != &('\n' as u8) {
+            let pt = Point::new(i, j);
             let children = match *b {
-                b'|' => vec![(i, j - 1), (i, j + 1)],
-                b'-' => vec![(i - 1, j), (i + 1, j)],
-                b'7' => vec![(i - 1, j), (i, j + 1)],
-                b'F' => vec![(i + 1, j), (i, j + 1)],
-                b'L' => vec![(i + 1, j), (i, j - 1)],
-                b'J' => vec![(i - 1, j), (i, j - 1)],
-                b'S' => vec![(i - 1, j), (i + 1, j), (i, j - 1), (i, j + 1)],
+                b'|' => vec![pt + UP, pt + DOWN],
+                b'-' => vec![pt + LEFT, pt + RIGHT],
+                b'7' => vec![pt + LEFT, pt + DOWN],
+                b'F' => vec![pt + RIGHT, pt + DOWN],
+                b'L' => vec![pt + RIGHT, pt + UP],
+                b'J' => vec![pt + LEFT, pt + UP],
+                b'S' => vec![],
                 b'.' => vec![],
                 _ => panic!("Unexpected token"),
             };
             map.insert(
-                (i, j),
+                pt,
                 Rc::new(Node {
-                    _pipe: *b as char,
-                    pt: (i, j),
+                    pipe: *b as char,
+                    pt,
                     ch: children,
                 }),
             );
@@ -121,7 +164,7 @@ fn _dump(h: i64, w: i64, visited: HashMap<(i64, i64), i64>, map: HashMap<(i64, i
             if let Some(step) = visited.get(&(i, j)) {
                 print!("{}", step);
             } else {
-                print!("{}", map[&(i, j)]._pipe)
+                print!("{}", map[&(i, j)].pipe)
             }
         }
         println!("");
@@ -132,30 +175,31 @@ fn part2() {
     let mut map = HashMap::new();
     let mut i = 0;
     let mut j = 0;
-    let mut start = (0, 0);
+    let mut start = Point::new(0, 0);
     let mut w = 0;
     let mut h = 0;
     for (_, b) in IN.iter().enumerate() {
         if b == &('S' as u8) {
-            start = (i, j);
+            start = Point::new(i, j);
         }
         if b != &('\n' as u8) {
+            let pt = Point::new(i, j);
             let children = match *b {
-                b'|' => vec![(i, j - 1), (i, j + 1)],
-                b'-' => vec![(i - 1, j), (i + 1, j)],
-                b'7' => vec![(i - 1, j), (i, j + 1)],
-                b'F' => vec![(i + 1, j), (i, j + 1)],
-                b'L' => vec![(i + 1, j), (i, j - 1)],
-                b'J' => vec![(i - 1, j), (i, j - 1)],
-                b'S' => vec![(i - 1, j), (i + 1, j), (i, j - 1), (i, j + 1)],
+                b'|' => vec![pt + UP, pt + DOWN],
+                b'-' => vec![pt + LEFT, pt + RIGHT],
+                b'7' => vec![pt + LEFT, pt + DOWN],
+                b'F' => vec![pt + RIGHT, pt + DOWN],
+                b'L' => vec![pt + RIGHT, pt + UP],
+                b'J' => vec![pt + LEFT, pt + UP],
+                b'S' => vec![],
                 b'.' => vec![],
                 _ => panic!("Unexpected token"),
             };
             map.insert(
-                (i, j),
+                pt,
                 Rc::new(Node {
-                    _pipe: *b as char,
-                    pt: (i, j),
+                    pipe: *b as char,
+                    pt,
                     ch: children,
                 }),
             );
@@ -179,8 +223,11 @@ fn part2() {
         .iter()
         .filter_map(|p| {
             map.get(p).map(|n| {
-                n.ch.contains(&start.pt)
-                    .then_some((start.clone(), map[p].clone(), 0i64))
+                if n.pipe.ne(&'.') && n.ch.contains(&start.pt) {
+                    Some((start.clone(), map[p].clone(), 0i64))
+                } else {
+                    None
+                }
             })
         })
         .flatten()
@@ -205,93 +252,77 @@ fn part2() {
         }
     }
 
-    let mut paths = (-1..=w)
-        .flat_map(|i| [(i, -1), (i, h)])
-        .chain((-1..=h).flat_map(|j| [(-1, j), (w, j)]))
-        .collect::<HashSet<_>>()
-        .into_iter()
-        .collect::<Vec<_>>();
-
-    let mut visited = HashSet::new();
-    visited.extend(paths.iter().cloned());
-    let mut inner = map.keys().collect::<HashSet<_>>();
-    while let Some(from) = paths.pop() {
-        inner.remove(&from);
-        let curr = map.get(&from).cloned();
-        for (di, dj) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
-            let to = (from.0 + di, from.1 + dj);
-            if !(-1..=w).contains(&to.0) || !(-1..=h).contains(&to.1) || visited.contains(&to) {
-                continue;
-            }
-            if let Some(curr) = curr.as_ref() {
-                if pipe_loop.contains_key(&curr.pt)
-                    && (curr._pipe == '|' || curr._pipe == '-')
-                    && !curr.ch.contains(&to)
-                {
-                    continue;
-                }
-            }
-            if let Some(next) = map.get(&to) {
-                if pipe_loop.contains_key(&next.pt)
-                    && (next._pipe == '|' || next._pipe == '-')
-                    && !next.ch.contains(&from)
-                {
-                    continue;
-                }
-            }
-            // if [(6, 6), (7, 6), (3, 2), (3, 3)].contains(&to) {
-            //     dump2(
-            //         h,
-            //         w,
-            //         pipe_loop.clone(),
-            //         &map,
-            //         visited.clone(),
-            //         paths.clone(),
-            //         &inner,
-            //     );
-            //     panic!("{:?}", (curr, map.get(&to), (i, j)))
-            // }
-            if !visited.contains(&to) {
-                visited.insert(to);
-                paths.push(to);
-                println!("{:?} -> {:?}", from, to);
-                println!("{:?} | {:?}", map.get(&to), curr);
-                dump2(
-                    h,
-                    w,
-                    pipe_loop.clone(),
-                    &map,
-                    visited.clone(),
-                    paths.clone(),
-                    &inner,
-                );
-            }
+    for loc in map.keys().cloned().collect::<Vec<_>>() {
+        if !pipe_loop.contains_key(&loc) {
+            map.insert(
+                loc,
+                Rc::new(Node {
+                    pipe: '.',
+                    pt: loc,
+                    ch: vec![],
+                }),
+            );
         }
     }
 
-    dump2(h, w, pipe_loop, &map, visited, paths, &inner);
+    let mut paths = LinkedList::from([Point::new(-1, -1)]);
+    let mut visited = HashSet::new();
+    visited.extend(paths.iter().cloned());
+    let mut inner = map.keys().collect::<HashSet<_>>();
+    while let Some(from) = paths.pop_front() {
+        visited.insert(from);
+        inner.remove(&from);
 
-    println!("{}", inner.len());
-}
+        let curr = map
+            .get(&from)
+            .or(Some(&Rc::new(Node {
+                pipe: '.',
+                pt: from,
+                ch: vec![],
+            })))
+            .cloned()
+            .unwrap();
 
-fn dump2(
-    h: i64,
-    w: i64,
-    pipe_loop: HashMap<(i64, i64), i64>,
-    map: &HashMap<(i64, i64), Rc<Node>>,
-    visited: HashSet<(i64, i64)>,
-    paths: Vec<(i64, i64)>,
-    inner: &HashSet<&(i64, i64)>,
-) {
+        for dir in [UP, DOWN, LEFT, RIGHT] {
+            let to = from + dir;
+            if !(-1..=w).contains(&to.i) || !(-1..=h).contains(&to.j) || visited.contains(&to) {
+                continue;
+            }
+
+            let next = map.get(&to).cloned().or_else(|| {
+                Some(Rc::new(Node {
+                    pipe: '.',
+                    pt: to,
+                    ch: vec![],
+                }))
+            });
+
+            if !visited.contains(&to) {
+                paths.push_back(to);
+                // println!("{:?} -> {:?}", from, to);
+                // println!("{:?} | {:?}", map.get(&to), curr);
+                // dump2(
+                //     h,
+                //     w,
+                //     pipe_loop.clone(),
+                //     &map,
+                //     visited.clone(),
+                //     paths.clone(),
+                //     &inner,
+                // );
+            }
+        }
+    }
     println!("   -01234567890");
     for j in -1..=h {
         print!("{:3} ", j);
         for i in -1..=w {
-            if let Some(_) = visited.get(&(i, j)) {
-                if pipe_loop.contains_key(&(i, j)) {
+            let pt = Point::new(i, j);
+            if let Some(_) = visited.get(&pt) {
+                if pipe_loop.contains_key(&pt) {
                     print!(
                         "{}",
-                        match map[&(i, j)]._pipe {
+                        match map[&pt].pipe {
                             '7' => '\\',
                             'F' => '/',
                             'L' => '\\',
@@ -305,17 +336,18 @@ fn dump2(
                 } else {
                     print!(" ");
                 }
-            } else if pipe_loop.contains_key(&(i, j)) {
-                print!("{}", map[&(i, j)]._pipe)
+            } else if pipe_loop.contains_key(&pt) {
+                print!("{}", map[&pt].pipe)
                 //print!(".");
-            } else if paths.contains(&(i, j)) {
+            } else if paths.contains(&pt) {
                 print!("#");
-            } else if inner.contains(&(i, j)) {
+            } else if inner.contains(&pt) {
                 print!("*")
             } else {
-                print!("{}", map[&(i, j)]._pipe)
+                print!("{}", map[&pt].pipe)
             }
         }
         println!("");
+        println!("{}", inner.len());
     }
 }
