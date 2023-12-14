@@ -187,3 +187,61 @@ fn main() {
     }
     println!("{}", sum);
 }
+
+fn construct(curr: u128, depth: usize, report: Report) -> u128 {
+    let unknowns = report.springs.iter().filter(|s| s == &&Spring::Unk).count();
+    let known_bad = report.springs.iter().filter(|s| s == &&Spring::Bad).count();
+    let total_bad = report.index.iter().sum::<usize>();
+
+    if total_bad == 0 || total_bad == known_bad {
+        sum += 1;
+        println!(
+            "{:04} {:04} {}",
+            report_n,
+            1,
+            report
+                .springs
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<String>()
+        );
+        report_n += 1;
+        continue;
+    }
+
+    let mut constructed = report.springs.clone();
+    let mut configs = 0;
+
+    let min = (1u128 << (total_bad - known_bad)) - 1;
+    let max = min << (unknowns + known_bad - total_bad);
+    println!("{} {}", min, max);
+    let mut valid = true;
+    for i in 0..constructed.len() {
+        let curr = constructed[i];
+        match (mode, curr) {
+            (Spring::Good, Spring::Good) => (),
+            (Spring::Good, Spring::Bad) => {
+                if idx >= report.index.len() {
+                    valid = false;
+                    break;
+                }
+                mode = Spring::Bad;
+                expected_bad = report.index[idx];
+                idx += 1;
+                bad_count = 1;
+            }
+            (Spring::Bad, Spring::Good) => {
+                if bad_count != expected_bad {
+                    valid = false;
+                    break;
+                }
+                mode = Spring::Good;
+                expected_bad = 0;
+            }
+            (Spring::Bad, Spring::Bad) => bad_count += 1,
+            _ => panic!("Failed to construct"),
+        }
+    }
+
+    0
+}
