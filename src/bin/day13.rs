@@ -26,48 +26,31 @@ fn main() {
 }
 fn part1() {
     let re = Regex::new(r"[^\n]+|\n\n").unwrap();
-    let toks = &mut re.find_iter(&IN).peekable();
-
-    let mut sum = 0usize;
+    let toks = &mut re.find_iter(&IN).map(|t| t.as_bytes()).peekable();
+    let mut sum = 0;
     while toks.peek().is_some() {
-        let rows = toks
-            .map_while(|t| t.as_bytes().ne(b"\n\n").then(|| t.as_bytes()))
-            .collect::<Vec<&[u8]>>();
-
-        let mut mirrored;
+        let rows = toks.take_while(|t| t != b"\n\n").collect::<Vec<_>>();
         for j in 0..(rows.len() - 1) {
-            let count = if j < rows.len() / 2 {
-                j + 1
+            let mut a = rows[0..=j].to_vec();
+            let mut b = rows[(j + 1)..].to_vec();
+            a.reverse();
+            if a.len() < b.len() {
+                b.truncate(a.len());
             } else {
-                rows.len() - j
-            };
-            mirrored = true;
-            for dj in 0..count {
-                let a = rows[j - dj];
-                let b = rows[j + 1 + dj];
+                a.truncate(b.len())
+            }
 
-                println!("{} {} {} {:?} vs {:?}", j, dj, count, a, b);
-                if a != b {
-                    mirrored = false;
-                    break;
-                }
+            for (i, (a, b)) in a.iter().zip(b.iter()).enumerate() {
+                println!("{}: {} {}", i, from_utf8(a).unwrap(), from_utf8(b).unwrap());
             }
-            println!("mirrored {}", mirrored);
-            if mirrored {
+            println!("");
+            if a == b {
                 sum += 100 * j;
-                break;
             }
-        }
-        println!("{}", sum);
-        let mut cols = vec![];
-        for i in 0..rows[0].len() {
-            let mut col = vec![];
-            for j in 0..rows.len() {
-                col.push(rows[j][i]);
-            }
-            cols.push(col);
         }
     }
+
+    println!("{sum}");
 }
 
 fn part2() {}
