@@ -2,7 +2,7 @@ use clap::Parser;
 use lazy_static::lazy_static;
 use regex::bytes::Regex;
 use std::{
-    collections::{HashMap, HashSet, LinkedList},
+    collections::{BinaryHeap, HashMap, LinkedList},
     fs::read,
     iter::once,
     ops::{Add, AddAssign, Sub},
@@ -87,6 +87,22 @@ impl AddAssign for Point {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Ord)]
+struct Path {
+    path: LinkedList<Point>,
+    heat: i64,
+}
+
+impl PartialOrd for Path {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match other.heat.partial_cmp(&self.heat) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        other.path.partial_cmp(&self.path)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 enum Dir {
     Up,
@@ -118,50 +134,49 @@ fn part1() {
         })
         .collect::<Vec<_>>();
 
-    let mut queue = LinkedList::from([
-        (
-            LinkedList::from([Point::new(1, 0), Point::new(0, 0)]),
-            map[0][1],
-        ),
-        (
-            LinkedList::from([Point::new(0, 1), Point::new(0, 0)]),
-            map[1][0],
-        ),
+    let mut queue = BinaryHeap::from([
+        Path {
+            path: LinkedList::from([Point::new(1, 0), Point::new(0, 0)]),
+            heat: map[0][1],
+        },
+        Path {
+            path: LinkedList::from([Point::new(0, 1), Point::new(0, 0)]),
+            heat: map[1][0],
+        },
     ]);
 
     let end = Point::new(map[0].len() as i64 - 1, map.len() as i64 - 1);
-    let mut best = (LinkedList::new(), i64::MAX);
+    let mut best = Path {
+        path: LinkedList::new(),
+        heat: i64::MAX,
+    };
     let mut count = 0;
     let mut visited = HashMap::new();
 
-    while let Some((curr, heat)) = queue.pop_front() {
-        let recents = curr.iter().take(4).collect::<Vec<_>>();
+    while let Some(path) = queue.pop() {
+        // print!("{} <<< ", path.heat);
+        // println!("{:?}", queue.iter().map(|p| p.heat).collect::<Vec<_>>());
+        let recents = path.path.iter().take(4).cloned().collect::<Vec<_>>();
 
-        if let Some(other) = visited.get(recents[0]) {
-            if *other < heat {
-                continue;
-            }
-        }
-
-        visited.insert(*recents[0], heat);
-
-        println!("{:?} {} {}", recents[0], heat, queue.len());
-        if heat >= best.1 {
+        if path.heat >= best.heat {
             continue;
         }
 
-        if *recents[0] == end {
+        if recents[0] == end {
             println!("new best {}", count);
             count += 1;
-            best = (curr, heat);
+            best = path;
             continue;
         }
 
-        let arrived_by = recents[0].dir_from(recents[1]);
+        let curr = path.path;
+        let heat = path.heat;
+
+        let arrived_by = recents[0].dir_from(&recents[1]);
         let mut adj = vec![];
         if recents.len() < 4
-            || recents[1].dir_from(recents[2]) != arrived_by
-            || recents[2].dir_from(recents[3]) != arrived_by
+            || recents[1].dir_from(&recents[2]) != arrived_by
+            || recents[2].dir_from(&recents[3]) != arrived_by
         {
             adj.push(arrived_by);
         }
@@ -177,9 +192,17 @@ fn part1() {
         }
 
         adj.sort();
+        let cache_key = (recents[0], adj.clone());
+        if let Some(other) = visited.get(&cache_key) {
+            if *other < heat {
+                continue;
+            }
+        }
+
+        visited.insert(cache_key, heat);
 
         for dir in adj {
-            let p = *recents[0] + dir.as_point();
+            let p = recents[0] + dir.as_point();
             if p.i < 0 || p.i as usize >= map[0].len() || p.j < 0 || p.j as usize >= map.len() {
                 continue;
             }
@@ -187,21 +210,16 @@ fn part1() {
                 continue;
             }
             let heat = heat + map[p.j as usize][p.i as usize];
-            if let Some(other) = visited.get(&p) {
-                if heat > *other {
-                    continue;
-                }
-            }
             let next = once(p)
                 .chain(curr.iter().cloned())
                 .collect::<LinkedList<_>>();
-            queue.push_front((next, heat));
+            queue.push(Path { path: next, heat });
         }
     }
 
     for j in 0..map.len() {
         for i in 0..map[j].len() {
-            if best.0.contains(&Point::new(i as i64, j as i64)) {
+            if best.path.contains(&Point::new(i as i64, j as i64)) {
                 print!("*");
             } else {
                 print!("{}", map[j][i])
@@ -209,7 +227,7 @@ fn part1() {
         }
         println!("")
     }
-    println!("{:?}", best);
+    println!("{:?}", best.heat);
 }
 
 fn part2() {}

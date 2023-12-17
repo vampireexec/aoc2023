@@ -7,6 +7,10 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.4.10", features = ["derive"] }
+flamegraph = "0.6.4"
 lazy_static = "1.4.0"
 num = "0.4.1"
 regex = "1.10.2"
+
+[profile.release]
+debug = true

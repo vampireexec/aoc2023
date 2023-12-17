@@ -20,3 +20,5 @@ Cargo.lock
 
 # ignore data files
 data/
+
+flamegraph.svg
