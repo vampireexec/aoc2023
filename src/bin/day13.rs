@@ -48,17 +48,25 @@ fn check_mirror(
     incl_col: Option<usize>,
 ) -> (Option<usize>, Option<usize>, usize) {
     for j in 0..(rows.len() - 1) {
-        let mut a = rows[0..=j].to_vec();
-        let mut b = rows[(j + 1)..].to_vec();
-        a.reverse();
-        if a.len() < b.len() {
-            b.truncate(a.len());
+        let (start_a, end_a, start_b, end_b) = if j < rows.len() / 2 {
+            (0, j, j + 1, 2 * j + 1)
         } else {
-            a.truncate(b.len())
+            (j - ((rows.len() - 1) - j - 1), j, j + 1, rows.len() - 1)
+        };
+
+        let mut a = rows[start_a..=end_a].to_vec();
+        a.reverse();
+        let b = rows[start_b..=end_b].to_vec();
+        assert_eq!(a.len(), b.len());
+
+        if let Some(incl_row) = incl_row {
+            if !(start_a..end_b).contains(&incl_row) {
+                continue;
+            }
         }
 
         if a == b {
-            return (None, Some(j), 100 * (j + 1));
+            return (Some(j), None, 100 * (j + 1));
         }
     }
 
@@ -75,13 +83,21 @@ fn check_mirror(
 
     // mirrored
     for i in 0..(cols.len() - 1) {
-        let mut a = cols[0..=i].to_vec();
-        let mut b = cols[(i + 1)..].to_vec();
-        a.reverse();
-        if a.len() < b.len() {
-            b.truncate(a.len());
+        let (start_a, end_a, start_b, end_b) = if i < cols.len() / 2 {
+            (0, i, i + 1, 2 * i + 1)
         } else {
-            a.truncate(b.len())
+            (i - ((cols.len() - 1) - i - 1), i, i + 1, cols.len() - 1)
+        };
+
+        let mut a = cols[start_a..=end_a].to_vec();
+        a.reverse();
+        let b = cols[start_b..=end_b].to_vec();
+        assert_eq!(a.len(), b.len());
+
+        if let Some(incl_col) = incl_col {
+            if !(start_a..end_b).contains(&incl_col) {
+                continue;
+            }
         }
 
         if a == b {
@@ -106,7 +122,7 @@ fn part2() {
             for i in 0..rows[0].len() {
                 let curr = rows[j][i];
                 rows[j][i] = if curr == b'.' { b'#' } else { b'.' };
-                let (found_row, found_col, value) = check_mirror(&mut rows, None, None);
+                let (found_row, found_col, value) = check_mirror(&mut rows, Some(j), Some(i));
                 rows[j][i] = curr;
 
                 if (orig_row.and(found_row).is_some() && orig_row != found_row)
