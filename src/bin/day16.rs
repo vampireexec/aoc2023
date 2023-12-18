@@ -3,7 +3,6 @@ use lazy_static::lazy_static;
 use regex::bytes::Regex;
 use std::{
     collections::HashSet,
-    fmt::format,
     fs::read,
     ops::{Add, AddAssign},
 };
