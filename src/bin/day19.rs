@@ -1,7 +1,7 @@
 use clap::Parser;
 use lazy_static::lazy_static;
 use regex::bytes::Regex;
-use std::{collections::HashMap, fs::read, iter::repeat, str::from_utf8};
+use std::{collections::HashMap, fs::read, str::from_utf8};
 
 #[derive(Parser, Debug)]
 #[command(author="Vampire Exec", version="0.0", about=format!("solution for {}", file!()), long_about = None)]
@@ -60,7 +60,7 @@ impl Part {
             PartField::X => self.x,
             PartField::M => self.m,
             PartField::A => self.a,
-            PartField::S => self.m,
+            PartField::S => self.s,
         }
     }
 }
@@ -83,12 +83,11 @@ struct Instr<'a> {
     rules: Vec<Op<'a>>,
 }
 
-fn part1() {
+fn get_stabs<'a>(input: &'a [u8]) -> HashMap<&'a [u8], Instr<'a>> {
     let rules_re =
         Regex::new(r"([xmas])([<>])(\d+):(?:([AR])|([a-z]+))|([AR])|([a-z]+)|(\n\n)").unwrap();
-    let parts_re = Regex::new(r"\{x=(\d+),m=(\d+),a=(\d+),s=(\d+)\}").unwrap();
     let mut stab = HashMap::new();
-    let mut toks = rules_re.captures_iter(&IN);
+    let mut toks = rules_re.captures_iter(&input);
     loop {
         let name = toks.next().unwrap().iter().next().unwrap().unwrap();
         let name = name.as_bytes();
@@ -169,9 +168,13 @@ fn part1() {
 
         stab.insert(name, Instr { name, rules });
     }
+    stab
+}
 
-    let parts = parts_re
-        .captures_iter(&IN)
+fn get_parts<'a>(input: &'a [u8]) -> Vec<Part> {
+    Regex::new(r"\{x=(\d+),m=(\d+),a=(\d+),s=(\d+)\}")
+        .unwrap()
+        .captures_iter(&input)
         .map(|m| {
             let (_, fields) = m.extract::<4>();
             Part {
@@ -181,9 +184,13 @@ fn part1() {
                 s: from_utf8(fields[3]).unwrap().parse().unwrap(),
             }
         })
-        .collect::<Vec<_>>();
+        .collect()
+}
 
+fn part1() {
     let mut sum = 0;
+    let stab = get_stabs(&IN);
+    let parts = get_parts(&IN);
     for p in parts {
         let mut curr = &stab[b"in" as &[u8]];
         let mut accepted = false;
@@ -202,6 +209,10 @@ fn part1() {
                             break 'rules;
                         }
                     }
+                    Op::Br(br) => {
+                        curr = &stab[br];
+                        break 'rules;
+                    }
                     Op::GeAccept(f, n) => {
                         if p.get(f.clone()) > *n {
                             accepted = true;
@@ -214,6 +225,10 @@ fn part1() {
                             break 'workflow;
                         }
                     }
+                    Op::Accept => {
+                        accepted = true;
+                        break 'workflow;
+                    }
                     Op::GeReject(f, n) => {
                         if p.get(f.clone()) > *n {
                             break 'workflow;
@@ -224,25 +239,14 @@ fn part1() {
                             break 'workflow;
                         }
                     }
-                    Op::Br(br) => {
-                        curr = &stab[br];
-                        break 'rules;
-                    }
                     Op::Reject => {
-                        break 'workflow;
-                    }
-                    Op::Accept => {
-                        accepted = true;
                         break 'workflow;
                     }
                 }
             }
         }
         if accepted {
-            println!("accept {p:?}");
             sum += p.x + p.m + p.a + p.s;
-        } else {
-            println!("reject {p:?}");
         }
     }
 
