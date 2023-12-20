@@ -1,7 +1,7 @@
 use clap::Parser;
 use lazy_static::lazy_static;
 use regex::bytes::Regex;
-use std::{collections::HashMap, fs::read, str::from_utf8};
+use std::{collections::HashMap, fmt::Debug, fs::read, str::from_utf8};
 
 #[derive(Parser, Debug)]
 #[command(author="Vampire Exec", version="0.0", about=format!("solution for {}", file!()), long_about = None)]
@@ -25,7 +25,7 @@ fn main() {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum Op<'a> {
     GeBr(PartField, i64, &'a [u8]),
     LeBr(PartField, i64, &'a [u8]),
@@ -38,7 +38,7 @@ enum Op<'a> {
     Accept,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct Part {
     x: i64,
     m: i64,
@@ -46,7 +46,7 @@ struct Part {
     s: i64,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum PartField {
     X,
     M,
@@ -63,6 +63,15 @@ impl Part {
             PartField::S => self.s,
         }
     }
+
+    fn _set(&mut self, v: i64, f: PartField) {
+        match f {
+            PartField::X => self.x = v,
+            PartField::M => self.m = v,
+            PartField::A => self.a = v,
+            PartField::S => self.s = v,
+        }
+    }
 }
 
 impl From<u8> for PartField {
@@ -77,7 +86,7 @@ impl From<u8> for PartField {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct Instr<'a> {
     name: &'a [u8],
     rules: Vec<Op<'a>>,
@@ -187,65 +196,61 @@ fn get_parts<'a>(input: &'a [u8]) -> Vec<Part> {
         .collect()
 }
 
+fn eval_part(p: &Part, stab: &HashMap<&[u8], Instr>) -> bool {
+    let mut curr = &stab[b"in" as &[u8]];
+    loop {
+        'rules: for rule in &curr.rules {
+            match rule {
+                Op::GeBr(f, n, br) => {
+                    if p.get(f.clone()) > *n {
+                        curr = &stab[br];
+                        break 'rules;
+                    }
+                }
+                Op::LeBr(f, n, br) => {
+                    if p.get(f.clone()) < *n {
+                        curr = &stab[br];
+                        break 'rules;
+                    }
+                }
+                Op::Br(br) => {
+                    curr = &stab[br];
+                    break 'rules;
+                }
+                Op::GeAccept(f, n) => {
+                    if p.get(f.clone()) > *n {
+                        return true;
+                    }
+                }
+                Op::LeAccept(f, n) => {
+                    if p.get(f.clone()) < *n {
+                        return true;
+                    }
+                }
+                Op::Accept => return true,
+                Op::GeReject(f, n) => {
+                    if p.get(f.clone()) > *n {
+                        return false;
+                    }
+                }
+
+                Op::LeReject(f, n) => {
+                    if p.get(f.clone()) < *n {
+                        return false;
+                    }
+                }
+                Op::Reject => return false,
+            }
+        }
+    }
+}
+
 fn part1() {
     let mut sum = 0;
     let stab = get_stabs(&IN);
     let parts = get_parts(&IN);
     for p in parts {
-        let mut curr = &stab[b"in" as &[u8]];
-        let mut accepted = false;
-        'workflow: loop {
-            'rules: for rule in &curr.rules {
-                match rule {
-                    Op::GeBr(f, n, br) => {
-                        if p.get(f.clone()) > *n {
-                            curr = &stab[br];
-                            break 'rules;
-                        }
-                    }
-                    Op::LeBr(f, n, br) => {
-                        if p.get(f.clone()) < *n {
-                            curr = &stab[br];
-                            break 'rules;
-                        }
-                    }
-                    Op::Br(br) => {
-                        curr = &stab[br];
-                        break 'rules;
-                    }
-                    Op::GeAccept(f, n) => {
-                        if p.get(f.clone()) > *n {
-                            accepted = true;
-                            break 'workflow;
-                        }
-                    }
-                    Op::LeAccept(f, n) => {
-                        if p.get(f.clone()) < *n {
-                            accepted = true;
-                            break 'workflow;
-                        }
-                    }
-                    Op::Accept => {
-                        accepted = true;
-                        break 'workflow;
-                    }
-                    Op::GeReject(f, n) => {
-                        if p.get(f.clone()) > *n {
-                            break 'workflow;
-                        }
-                    }
-                    Op::LeReject(f, n) => {
-                        if p.get(f.clone()) < *n {
-                            break 'workflow;
-                        }
-                    }
-                    Op::Reject => {
-                        break 'workflow;
-                    }
-                }
-            }
-        }
-        if accepted {
+        if eval_part(&p, &stab) {
             sum += p.x + p.m + p.a + p.s;
         }
     }
@@ -253,4 +258,53 @@ fn part1() {
     println!("sum {sum}");
 }
 
-fn part2() {}
+fn part2() {
+    let stab = get_stabs(&IN);
+    let accepts = stab
+        .iter()
+        .map(|(k, v)| {
+            v.rules
+                .iter()
+                .enumerate()
+                .filter_map(|(i, r)| match r {
+                    Op::GeAccept(_, _) | Op::LeAccept(_, _) | Op::Accept => Some((*k, i)),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        })
+        .flatten()
+        .collect::<Vec<_>>();
+    println!(
+        "{}",
+        accepts
+            .iter()
+            .map(|v| format!("{:?}", v))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+
+    let mut ranges = HashMap::from([
+        (PartField::X, 0..0),
+        (PartField::M, 0..0),
+        (PartField::A, 0..0),
+        (PartField::S, 0..0),
+    ]);
+
+    //need to generate a list of revese pointers
+
+    for accept in accepts {
+        let instr = &stab[&accept.0];
+        let ridx = accept.1;
+        let acceptable = HashMap::from([
+            (PartField::X, 1..=4000),
+            (PartField::M, 1..=4000),
+            (PartField::A, 1..=4000),
+            (PartField::S, 1..=4000),
+        ]);
+        'intr: loop {
+            'rules: loop {
+                // need to add a stack for all the backward branches
+            }
+        }
+    }
+}
