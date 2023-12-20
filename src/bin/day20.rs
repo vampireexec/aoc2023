@@ -12,8 +12,6 @@ use std::{
 struct Args {
     #[arg(long)]
     input: Option<String>,
-    #[arg(long)]
-    part: u8,
     #[arg(long, default_value_t = false)]
     debug: bool,
     #[arg(long)]
@@ -26,11 +24,29 @@ lazy_static! {
 }
 
 fn main() {
-    if ARGS.part == 1 {
-        part1();
-    } else {
-        part2();
+    let mut wires = get_wires();
+    if ARGS.debug {
+        for (label, wire) in wires.iter() {
+            println!("{label} {wire:?}");
+        }
     }
+
+    let mut hi_count = 0u128;
+    let mut lo_count = 0u128;
+    for n in 1..=ARGS.num {
+        if ARGS.debug {
+            println!("{n}");
+        }
+
+        let (hi, lo) = push_button(&mut wires, n);
+        hi_count += hi;
+        lo_count += lo;
+        if ARGS.debug {
+            println!("[{hi_count}, {lo_count}]");
+            println!("");
+        }
+    }
+    println!("hi {hi_count} x lo {lo_count} = {}", hi_count * lo_count);
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -86,7 +102,6 @@ fn get_wires<'a>() -> HashMap<&'a str, Wire<'a>> {
     }
 
     // link conjs
-
     let keys = wires.keys().cloned().collect::<Vec<_>>();
     for label in keys.into_iter() {
         let mut wire = wires.remove(label).unwrap();
@@ -111,16 +126,21 @@ fn push_button<'a>(wires: &mut HashMap<&'a str, Wire<'a>>, n: u128) -> (u128, u1
 
     let mut queue = LinkedList::from([("button", "broadcaster", Pulse::Low)]);
     lo_count += 1;
+
+    let mut last_nc = wires.get("nc").cloned();
     while let Some((prev, curr, pulse)) = queue.pop_front() {
-        if let Some(curr_nc) = wires.get("nc") {
-            match &curr_nc.op {
-                Op::Cn(c) => {
-                    let cc = c.iter().filter(|(_, p)| *p == Pulse::High).count();
-                    if cc >= 1 {
-                        println!("{c:?} @ {n}");
+        if let Some(curr_nc) = wires.get("nc").cloned() {
+            if &curr_nc != last_nc.as_ref().unwrap() {
+                match &curr_nc.op {
+                    Op::Cn(c) => {
+                        let cc = c.iter().filter(|(_, p)| *p == Pulse::High).count();
+                        if cc >= 1 {
+                            println!("{c:?} @ {n}");
+                        }
                     }
+                    _ => (),
                 }
-                _ => panic!("no!!"),
+                last_nc.replace(curr_nc);
             }
         }
 
@@ -190,30 +210,3 @@ fn push_button<'a>(wires: &mut HashMap<&'a str, Wire<'a>>, n: u128) -> (u128, u1
 
     (hi_count, lo_count)
 }
-fn part1() {
-    let mut wires = get_wires();
-    if ARGS.debug {
-        for (label, wire) in wires.iter() {
-            println!("{label} {wire:?}");
-        }
-    }
-
-    let mut hi_count = 0u128;
-    let mut lo_count = 0u128;
-    for n in 0..ARGS.num {
-        if ARGS.debug {
-            println!("{n}");
-        }
-
-        let (hi, lo) = push_button(&mut wires, n);
-        hi_count += hi;
-        lo_count += lo;
-        if ARGS.debug {
-            println!("[{hi_count}, {lo_count}]");
-            println!("");
-        }
-    }
-    println!("hi {hi_count} x lo {lo_count} = {}", hi_count * lo_count);
-}
-
-fn part2() {}
