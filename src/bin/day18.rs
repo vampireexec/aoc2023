@@ -300,12 +300,17 @@ fn part2() {
         println!("{:?} {:?} = {} ({})", p1, p2, tri, sum / 2,);
     }
 
-    let mut sum = 0i128;
-    for i in (0..(points.len() - 1)).rev() {
+    sum /= 2;
+
+    for i in 0..(points.len() - 1) {
         let p1 = points[i];
         let p2 = points[i + 1];
-        let tri = p1.i * p2.j - p2.i * p1.j;
-        sum += tri;
-        println!("{:?} {:?} = {} ({})", p1, p2, tri, sum / 2,);
+        if p1.i < p2.i || p1.j < p2.j {
+            let perim = p1.i.abs_diff(p2.i) + p1.j.abs_diff(p2.j);
+            sum += perim as i128;
+        }
+        println!("{:?} {:?} = {} ({})", p1, p2, 0, sum);
     }
+    sum += 1;
+    println!("{}", sum);
 }
