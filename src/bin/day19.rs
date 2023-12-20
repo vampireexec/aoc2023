@@ -259,52 +259,52 @@ fn part1() {
 }
 
 fn part2() {
-    let stab = get_stabs(&IN);
-    let accepts = stab
-        .iter()
-        .map(|(k, v)| {
-            v.rules
-                .iter()
-                .enumerate()
-                .filter_map(|(i, r)| match r {
-                    Op::GeAccept(_, _) | Op::LeAccept(_, _) | Op::Accept => Some((*k, i)),
-                    _ => None,
-                })
-                .collect::<Vec<_>>()
-        })
-        .flatten()
-        .collect::<Vec<_>>();
-    println!(
-        "{}",
-        accepts
-            .iter()
-            .map(|v| format!("{:?}", v))
-            .collect::<Vec<_>>()
-            .join("\n")
-    );
+    // let stab = get_stabs(&IN);
+    // let accepts = stab
+    //     .iter()
+    //     .map(|(k, v)| {
+    //         v.rules
+    //             .iter()
+    //             .enumerate()
+    //             .filter_map(|(i, r)| match r {
+    //                 Op::GeAccept(_, _) | Op::LeAccept(_, _) | Op::Accept => Some((*k, i)),
+    //                 _ => None,
+    //             })
+    //             .collect::<Vec<_>>()
+    //     })
+    //     .flatten()
+    //     .collect::<Vec<_>>();
+    // println!(
+    //     "{}",
+    //     accepts
+    //         .iter()
+    //         .map(|v| format!("{:?}", v))
+    //         .collect::<Vec<_>>()
+    //         .join("\n")
+    // );
 
-    let mut ranges = HashMap::from([
-        (PartField::X, 0..0),
-        (PartField::M, 0..0),
-        (PartField::A, 0..0),
-        (PartField::S, 0..0),
-    ]);
+    // let mut ranges = HashMap::from([
+    //     (PartField::X, 0..0),
+    //     (PartField::M, 0..0),
+    //     (PartField::A, 0..0),
+    //     (PartField::S, 0..0),
+    // ]);
 
-    //need to generate a list of revese pointers
+    // //need to generate a list of revese pointers
 
-    for accept in accepts {
-        let instr = &stab[&accept.0];
-        let ridx = accept.1;
-        let acceptable = HashMap::from([
-            (PartField::X, 1..=4000),
-            (PartField::M, 1..=4000),
-            (PartField::A, 1..=4000),
-            (PartField::S, 1..=4000),
-        ]);
-        'intr: loop {
-            'rules: loop {
-                // need to add a stack for all the backward branches
-            }
-        }
-    }
+    // for accept in accepts {
+    //     let instr = &stab[&accept.0];
+    //     let ridx = accept.1;
+    //     let acceptable = HashMap::from([
+    //         (PartField::X, 1..=4000),
+    //         (PartField::M, 1..=4000),
+    //         (PartField::A, 1..=4000),
+    //         (PartField::S, 1..=4000),
+    //     ]);
+    //     'intr: loop {
+    //         'rules: loop {
+    //             // need to add a stack for all the backward branches
+    //         }
+    //     }
+    // }
 }

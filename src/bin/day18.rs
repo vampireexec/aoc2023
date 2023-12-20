@@ -2,7 +2,7 @@ use clap::Parser;
 use lazy_static::lazy_static;
 use regex::bytes::Regex;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     fs::read,
     ops::{Add, AddAssign, Mul, Sub},
     str::from_utf8,
