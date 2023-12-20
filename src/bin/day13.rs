@@ -44,8 +44,8 @@ fn part1() {
 
 fn check_mirror(
     rows: &mut Vec<Vec<u8>>,
-    incl_row: Option<usize>,
-    incl_col: Option<usize>,
+    incl_j: Option<usize>,
+    incl_i: Option<usize>,
 ) -> (Option<usize>, Option<usize>, usize) {
     for j in 0..(rows.len() - 1) {
         let (start_a, end_a, start_b, end_b) = if j < rows.len() / 2 {
@@ -59,8 +59,8 @@ fn check_mirror(
         let b = rows[start_b..=end_b].to_vec();
         assert_eq!(a.len(), b.len());
 
-        if let Some(incl_row) = incl_row {
-            if !(start_a..end_b).contains(&incl_row) {
+        if let Some(incl_j) = incl_j {
+            if !(start_a..=end_b).contains(&incl_j) {
                 continue;
             }
         }
@@ -94,8 +94,8 @@ fn check_mirror(
         let b = cols[start_b..=end_b].to_vec();
         assert_eq!(a.len(), b.len());
 
-        if let Some(incl_col) = incl_col {
-            if !(start_a..end_b).contains(&incl_col) {
+        if let Some(incl_i) = incl_i {
+            if !(start_a..=end_b).contains(&incl_i) {
                 continue;
             }
         }
@@ -117,18 +117,17 @@ fn part2() {
             .map(|o| o.unwrap())
             .collect::<Vec<_>>();
 
-        let (orig_row, orig_col, _) = check_mirror(&mut rows, None, None);
+        let (_, _, _) = check_mirror(&mut rows, None, None);
+
         'outer: for j in 0..rows.len() {
             for i in 0..rows[0].len() {
                 let curr = rows[j][i];
                 rows[j][i] = if curr == b'.' { b'#' } else { b'.' };
-                let (found_row, found_col, value) = check_mirror(&mut rows, Some(j), Some(i));
+                let (found_j, found_i, value) = check_mirror(&mut rows, Some(j), Some(i));
                 rows[j][i] = curr;
 
-                if (orig_row.and(found_row).is_some() && orig_row != found_row)
-                    || (orig_col.and(found_col).is_some() && orig_col != found_col)
-                {
-                    println!("here {:?} {:?} {}", found_row, found_col, value);
+                if found_j.is_some() || found_i.is_some() {
+                    println!("here {:?} {:?} {}", found_j, found_i, value);
                     sum += value;
                     break 'outer;
                 }
