@@ -1,7 +1,7 @@
 use clap::Parser;
 use lazy_static::lazy_static;
 use regex::bytes::Regex;
-use std::{collections::HashMap, fmt::Debug, fs::read, path, str::from_utf8};
+use std::{collections::HashMap, fmt::Debug, fs::read, str::from_utf8};
 
 #[derive(Parser, Debug)]
 #[command(author="Vampire Exec", version="0.0", about=format!("solution for {}", file!()), long_about = None)]
