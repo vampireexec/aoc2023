@@ -1,7 +1,7 @@
 use clap::Parser;
 use lazy_static::lazy_static;
 use regex::bytes::Regex;
-use std::{collections::HashMap, fmt::Debug, fs::read, str::from_utf8};
+use std::{collections::HashMap, fmt::Debug, fs::read, path, str::from_utf8};
 
 #[derive(Parser, Debug)]
 #[command(author="Vampire Exec", version="0.0", about=format!("solution for {}", file!()), long_about = None)]
@@ -106,62 +106,59 @@ fn get_stabs<'a>(input: &'a [u8]) -> HashMap<&'a [u8], Instr<'a>> {
 
         let mut rules = vec![];
         loop {
-            let mut groups: [&[u8]; 9] = [b""; 9];
             let captures = toks.next().unwrap();
-            captures
+            let groups = captures
                 .iter()
-                .enumerate()
-                .filter(|(_, m)| m.is_some())
-                .for_each(|(i, m)| groups[i] = m.unwrap().as_bytes());
-
-            match groups {
-                [_, f, b">", n, b"A", b"", b"", b"", b""] => {
+                .map(|m| m.map_or_else(|| b"" as &[u8], |m| m.as_bytes()))
+                .collect::<Vec<_>>();
+            match &groups[1..=7] {
+                [f, b">", n, b"A", b"", b"", b""] => {
                     rules.push(Op::GeAccept(
                         f[0].into(),
                         from_utf8(n).unwrap().parse().unwrap(),
                     ));
                 }
-                [_, f, b"<", n, b"A", b"", b"", b"", b""] => {
+                [f, b"<", n, b"A", b"", b"", b""] => {
                     rules.push(Op::LeAccept(
                         f[0].into(),
                         from_utf8(n).unwrap().parse().unwrap(),
                     ));
                 }
-                [_, f, b">", n, b"R", b"", b"", b"", b""] => {
+                [f, b">", n, b"R", b"", b"", b""] => {
                     rules.push(Op::GeReject(
                         f[0].into(),
                         from_utf8(n).unwrap().parse().unwrap(),
                     ));
                 }
-                [_, f, b"<", n, b"R", b"", b"", b"", b""] => {
+                [f, b"<", n, b"R", b"", b"", b""] => {
                     rules.push(Op::LeReject(
                         f[0].into(),
                         from_utf8(n).unwrap().parse().unwrap(),
                     ));
                 }
-                [_, f, b">", n, b"", br, b"", b"", b""] => {
+                [f, b">", n, b"", br, b"", b""] => {
                     rules.push(Op::GeBr(
                         f[0].into(),
                         from_utf8(n).unwrap().parse().unwrap(),
                         br,
                     ));
                 }
-                [_, f, b"<", n, b"", br, b"", b"", b""] => {
+                [f, b"<", n, b"", br, b"", b""] => {
                     rules.push(Op::LeBr(
                         f[0].into(),
                         from_utf8(n).unwrap().parse().unwrap(),
                         br,
                     ));
                 }
-                [_, b"", b"", b"", b"", b"", b"A", b"", b""] => {
+                [b"", b"", b"", b"", b"", b"A", b""] => {
                     rules.push(Op::Accept);
                     break;
                 }
-                [_, b"", b"", b"", b"", b"", b"R", b"", b""] => {
+                [b"", b"", b"", b"", b"", b"R", b""] => {
                     rules.push(Op::Reject);
                     break;
                 }
-                [_, b"", b"", b"", b"", b"", b"", br, b""] => {
+                [b"", b"", b"", b"", b"", b"", br] => {
                     rules.push(Op::Br(br));
                     break;
                 }
@@ -259,52 +256,89 @@ fn part1() {
 }
 
 fn part2() {
-    // let stab = get_stabs(&IN);
-    // let accepts = stab
-    //     .iter()
-    //     .map(|(k, v)| {
-    //         v.rules
-    //             .iter()
-    //             .enumerate()
-    //             .filter_map(|(i, r)| match r {
-    //                 Op::GeAccept(_, _) | Op::LeAccept(_, _) | Op::Accept => Some((*k, i)),
-    //                 _ => None,
-    //             })
-    //             .collect::<Vec<_>>()
-    //     })
-    //     .flatten()
-    //     .collect::<Vec<_>>();
-    // println!(
-    //     "{}",
-    //     accepts
-    //         .iter()
-    //         .map(|v| format!("{:?}", v))
-    //         .collect::<Vec<_>>()
-    //         .join("\n")
-    // );
+    let stab = get_stabs(&IN);
+    let mut stack = stab[b"in" as &[u8]]
+        .rules
+        .iter()
+        .map(|r| vec![r.clone()])
+        .collect::<Vec<_>>();
+    let mut accept_paths = vec![];
+    while let Some(path) = stack.pop() {
+        let curr = path.last().unwrap();
+        match curr {
+            Op::GeAccept(_, _) | Op::LeAccept(_, _) | Op::Accept => {
+                accept_paths.push(path);
+            }
+            Op::GeBr(_, _, label) | Op::LeBr(_, _, label) | Op::Br(label) => {
+                for rule in stab[&label as &[u8]].rules.iter() {
+                    let mut next_path = path.clone();
+                    next_path.push(rule.clone());
+                    stack.push(next_path);
+                }
+            }
+            Op::GeReject(_, _) | Op::LeReject(_, _) | Op::Reject => (),
+        }
+    }
 
-    // let mut ranges = HashMap::from([
-    //     (PartField::X, 0..0),
-    //     (PartField::M, 0..0),
-    //     (PartField::A, 0..0),
-    //     (PartField::S, 0..0),
-    // ]);
+    let mut acceptable_union = HashMap::from([
+        (PartField::X, (4000, 1)),
+        (PartField::M, (4000, 1)),
+        (PartField::A, (4000, 1)),
+        (PartField::S, (4000, 1)),
+    ]);
+    let mut total = 0;
+    for path in accept_paths.iter() {
+        let mut acceptable = HashMap::from([
+            (PartField::X, (1, 4000)),
+            (PartField::M, (1, 4000)),
+            (PartField::A, (1, 4000)),
+            (PartField::S, (1, 4000)),
+        ]);
+        for rule in path.iter() {
+            match rule {
+                Op::GeBr(field, n, _) | Op::GeAccept(field, n) => {
+                    let ent = acceptable.get_mut(&field).unwrap();
+                    if ent.0 < *n {
+                        ent.0 = *n;
+                    }
+                }
+                Op::LeBr(field, n, _) | Op::LeAccept(field, n) => {
+                    let ent = acceptable.get_mut(&field).unwrap();
+                    if ent.1 > *n {
+                        ent.1 = *n
+                    }
+                }
+                Op::Br(_) | Op::Accept => (),
+                Op::GeReject(_, _) | Op::LeReject(_, _) | Op::Reject => panic!("should not reject"),
+            }
+        }
 
-    // //need to generate a list of revese pointers
+        let mut count = 1;
+        for field in [PartField::X, PartField::M, PartField::A, PartField::S] {
+            assert!(acceptable[&field].0 < acceptable[&field].1);
+            count *= acceptable[&field].1 - acceptable[&field].0;
+        }
+        total += count;
+        println!("{path:?}\n{acceptable:?}\ncount={count}\ntotal={total}");
 
-    // for accept in accepts {
-    //     let instr = &stab[&accept.0];
-    //     let ridx = accept.1;
-    //     let acceptable = HashMap::from([
-    //         (PartField::X, 1..=4000),
-    //         (PartField::M, 1..=4000),
-    //         (PartField::A, 1..=4000),
-    //         (PartField::S, 1..=4000),
-    //     ]);
-    //     'intr: loop {
-    //         'rules: loop {
-    //             // need to add a stack for all the backward branches
-    //         }
-    //     }
-    // }
+        for field in [PartField::X, PartField::M, PartField::A, PartField::S] {
+            if acceptable_union[&field].0 > acceptable[&field].0 {
+                let au = acceptable_union.get_mut(&field).unwrap();
+                au.0 = acceptable[&field].0;
+            }
+            if acceptable_union[&field].1 < acceptable[&field].1 {
+                let au = acceptable_union.get_mut(&field).unwrap();
+                au.1 = acceptable[&field].1;
+            }
+        }
+    }
+
+    let mut count = 1;
+    for field in [PartField::X, PartField::M, PartField::A, PartField::S] {
+        assert!(acceptable_union[&field].0 < acceptable_union[&field].1);
+        count *= acceptable_union[&field].1 - acceptable_union[&field].0;
+    }
+    println!("{acceptable_union:?}");
+    println!("other={}", count);
+    println!("real ={}", 167409079868000)
 }
