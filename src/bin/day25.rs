@@ -1,10 +1,7 @@
 use clap::Parser;
 use lazy_static::lazy_static;
 use regex::bytes::Regex;
-use std::{
-    collections::{HashMap, HashSet},
-    fs::read,
-};
+use std::{collections::HashMap, fs::read};
 
 #[derive(Parser, Debug)]
 #[command(author="Vampire Exec", version="0.0", about=format!("solution for {}", file!()), long_about = None)]
@@ -29,7 +26,7 @@ fn main() {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct Node<'a> {
+struct _Node<'a> {
     label: &'a [u8],
     wires: Vec<&'a [u8]>,
 }
@@ -38,76 +35,106 @@ fn part1() {
     let re = Regex::new("\\w+|\n").unwrap();
     let mut toks = re.find_iter(&IN).map(|m| m.as_bytes());
     let mut connections = vec![];
-    let mut wire_table = HashMap::new();
+    let mut id = 0;
+    let mut lut = HashMap::new();
     while let Some(from) = toks.next() {
+        let from = if lut.contains_key(&from) {
+            lut[from]
+        } else {
+            let v = id;
+            id += 1;
+            lut.insert(from.clone(), v);
+            v
+        };
         while let Some(to) = toks.next() {
             if to == b"\n" {
                 break;
             }
-            let node = wire_table.entry(from).or_insert_with(|| Node {
-                label: from,
-                wires: vec![],
-            });
-            node.wires.push(to);
-
-            let node = wire_table.entry(to).or_insert_with(|| Node {
-                label: to,
-                wires: vec![],
-            });
-            node.wires.push(from);
-            connections.push(HashSet::from([from, to]));
+            let to = if lut.contains_key(&to) {
+                lut[to]
+            } else {
+                let v = id;
+                id += 1;
+                lut.insert(to.clone(), v);
+                v
+            };
+            let mut connection = [from, to];
+            connection.sort();
+            connections.push(connection);
         }
     }
+    let num = id;
+    connections.sort();
 
-    let components = wire_table.keys().cloned().collect::<HashSet<_>>();
-    let mut result = vec![];
-
+    let parts = (0..num).map(|i| Some(vec![i])).collect::<Vec<_>>();
+    let parents = (0..num).map(|i| (i, i)).collect::<HashMap<_, _>>();
+    let mut cache: HashMap<_, (Vec<_>, HashMap<_, _>)> = HashMap::new();
     for i in 0..(connections.len() - 2) {
+        println!("{i:4}");
         for j in (i + 1)..(connections.len() - 1) {
+            println!("     {j:4}");
             for k in (j + 1)..connections.len() {
-                let exclude = [&connections[i], &connections[j], &connections[k]];
-                println!("{i} {j} {k}");
+                println!("          {k:4}");
+                let exclude = [i, j, k];
+                let (mut parts, mut parents) = if cache.contains_key(&(k + 1)) {
+                    println!("hit");
+                    let ent = cache.get(&(k + 1)).unwrap();
+                    (ent.0.clone(), ent.1.clone())
+                } else {
+                    let mut parts = parts.clone();
+                    let mut parents = parents.clone();
 
-                let mut remaining = components.clone();
-                let mut parts = vec![];
+                    for cn in ((k + 1)..connections.len()).rev() {
+                        let from = parents[&connections[cn][0]];
+                        let to = parents[&connections[cn][1]];
+                        if from == to {
+                            continue;
+                        }
 
-                while let Some(start) = remaining.iter().cloned().next() {
-                    let mut part = HashSet::new();
-                    let mut stack = vec![start];
-                    while let Some(curr) = stack.pop() {
-                        remaining.remove(curr);
-                        part.insert(curr);
-                        let node = &wire_table[curr];
-                        for wire in node.wires.iter().cloned() {
-                            if exclude.contains(&&HashSet::from([curr, wire])) {
-                                continue;
-                            }
+                        let to_part = parts[to].take();
+                        for child in to_part.as_ref().unwrap() {
+                            parents.insert(*child, from);
+                        }
+                        parts[from].as_mut().unwrap().append(&mut to_part.unwrap());
 
-                            if !part.contains(wire) {
-                                stack.push(wire);
-                            }
+                        if !cache.contains_key(&cn) {
+                            cache.insert(cn, (parts.clone(), parents.clone()));
                         }
                     }
 
-                    parts.push(part);
+                    (parts, parents)
+                };
+
+                for cn in (0..k).rev() {
+                    if exclude.contains(&cn) {
+                        continue;
+                    }
+
+                    let from = parents[&connections[cn][0]];
+                    let to = parents[&connections[cn][1]];
+                    if from == to {
+                        continue;
+                    }
+
+                    let to_part = parts[to].take();
+                    for child in to_part.as_ref().unwrap() {
+                        parents.insert(*child, from);
+                    }
+                    parts[from].as_mut().unwrap().append(&mut to_part.unwrap());
                 }
 
-                if parts.len() != 1 {
-                    result.push(format!(
-                        "{i} {j} {k} - {}",
-                        parts
-                            .iter()
-                            .map(|s| s.len().to_string())
-                            .collect::<Vec<_>>()
-                            .join(" ")
-                    ));
+                let parts = parts.into_iter().flatten().collect::<Vec<_>>();
+
+                if parts.len() > 1 {
+                    let mut fac = 1;
+                    for part in &parts {
+                        fac *= part.len();
+                    }
+                    println!("{fac} {parts:?}");
+                    return;
                 }
             }
         }
-    }
-
-    for r in result {
-        println!("{}", r);
     }
 }
 
