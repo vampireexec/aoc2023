@@ -68,23 +68,20 @@ fn part1() {
 
     let parts = (0..num).map(|i| Some(vec![i])).collect::<Vec<_>>();
     let parents = (0..num).map(|i| (i, i)).collect::<HashMap<_, _>>();
-    let mut cache: HashMap<_, (Vec<_>, HashMap<_, _>)> = HashMap::new();
+    let mut cache: HashMap<usize, (Vec<_>, HashMap<_, _>)> = HashMap::new();
     for i in 0..(connections.len() - 2) {
         println!("{i:4}");
         for j in (i + 1)..(connections.len() - 1) {
-            println!("     {j:4}");
             for k in (j + 1)..connections.len() {
-                println!("          {k:4}");
                 let exclude = [i, j, k];
-                let (mut parts, mut parents) = if cache.contains_key(&(k + 1)) {
-                    println!("hit");
-                    let ent = cache.get(&(k + 1)).unwrap();
-                    (ent.0.clone(), ent.1.clone())
+
+                let (mut parts, mut parents) = if let Some((parts, parents)) = cache.get(&(k + 1)) {
+                    (parts.clone(), parents.clone())
                 } else {
                     let mut parts = parts.clone();
                     let mut parents = parents.clone();
 
-                    for cn in ((k + 1)..connections.len()).rev() {
+                    for cn in (k + 1)..connections.len() {
                         let from = parents[&connections[cn][0]];
                         let to = parents[&connections[cn][1]];
                         if from == to {
@@ -96,16 +93,15 @@ fn part1() {
                             parents.insert(*child, from);
                         }
                         parts[from].as_mut().unwrap().append(&mut to_part.unwrap());
-
-                        if !cache.contains_key(&cn) {
-                            cache.insert(cn, (parts.clone(), parents.clone()));
-                        }
                     }
 
+                    if !cache.contains_key(&(k + 1)) {
+                        cache.insert(k + 1, (parts.clone(), parents.clone()));
+                    }
                     (parts, parents)
                 };
 
-                for cn in (0..k).rev() {
+                for cn in 0..k {
                     if exclude.contains(&cn) {
                         continue;
                     }
